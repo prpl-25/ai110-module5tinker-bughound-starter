@@ -53,6 +53,11 @@ def assess_risk(
         score -= 20
         reasons.append("Fixed code is much shorter than original.")
 
+    oversized = len(original_lines) > 0 and len(fixed_lines) > len(original_lines) * 1.5
+    if oversized:
+        score -= 15
+        reasons.append("Fix adds substantial new code; may be a rewrite rather than a patch.")
+
     if "return" in original_code and "return" not in fixed_code:
         score -= 30
         reasons.append("Return statements may have been removed.")
@@ -80,7 +85,8 @@ def assess_risk(
     # ----------------------------
     # Auto-fix policy
     # ----------------------------
-    should_autofix = level == "low"
+    # Oversized fixes are hard-blocked regardless of score: a rewrite is not a patch.
+    should_autofix = level == "low" and not oversized
 
     if not reasons:
         reasons.append("No significant risks detected.")

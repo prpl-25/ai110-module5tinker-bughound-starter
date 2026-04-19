@@ -46,3 +46,54 @@ def test_missing_return_is_penalized():
     )
     assert risk["score"] < 100
     assert any("Return" in r or "return" in r for r in risk["reasons"])
+
+
+def test_oversized_fix_blocks_autofix_even_at_low_severity():
+    # Failure mode: a Low severity issue triggers an LLM rewrite 3-4x larger than the
+    # original. Without the oversized guardrail, score stays at "low" and autofix fires.
+    # With the guardrail, should_autofix must be False regardless of score level.
+    original = (
+        "def load_data(path):\n"
+        "    try:\n"
+        "        data = open(path).read()\n"
+        "    except:\n"
+        "        return None\n"
+        "    return data\n"
+    )
+    # Simulate a verbose LLM rewrite: 22 lines vs 6 original (3.7x)
+    oversized_fix = "\n".join([
+        "import logging",
+        "from pathlib import Path",
+        "from typing import Optional",
+        "",
+        "logger = logging.getLogger(__name__)",
+        "",
+        "def load_data(path: str) -> Optional[str]:",
+        '    """Load data from a file path."""',
+        "    file_path = Path(path)",
+        "    if not file_path.exists():",
+        '        logger.warning("File not found: %s", path)',
+        "        return None",
+        "    if not file_path.is_file():",
+        '        logger.warning("Not a file: %s", path)',
+        "        return None",
+        "    try:",
+        "        data = file_path.read_text()",
+        '        logger.info("Loaded %d bytes from %s", len(data), path)',
+        "        return data",
+        "    except Exception as e:",
+        '        logger.error("Failed to read %s: %s", path, e)',
+        "        return None",
+    ]) + "\n"
+
+    risk = assess_risk(
+        original_code=original,
+        fixed_code=oversized_fix,
+        issues=[{"type": "Code Quality", "severity": "Low", "msg": "bare except"}],
+    )
+
+    assert risk["should_autofix"] is False, (
+        "Oversized fix (>1.5x original lines) must not be auto-applied, "
+        f"even at score={risk['score']} level={risk['level']}"
+    )
+    assert any("rewrite" in r.lower() or "substantial" in r.lower() for r in risk["reasons"])

@@ -107,3 +107,12 @@ You should see tests covering:
 * Risk scoring and guardrails
 * Heuristic fallbacks when LLM output is invalid
 * End-to-end agent workflow shape
+
+---
+
+## TF Summary
+
+- The core concept students needed to understand is that AI output is unreliable by default — the agent's value comes not from the model call itself but from the guardrails, fallbacks, and validation logic surrounding it. 
+- Students most commonly struggled with tracing why a result appeared: the system silently falls back to heuristics on any parse failure, so a student who sees heuristic output in Gemini mode may not realize the LLM was never actually used. 
+- AI tools were genuinely helpful for understanding what a method was doing and for drafting test structure, but misleading when suggesting guardrail changes — Copilot tended to propose score adjustments when the right fix was a hard boolean block, because it optimized for "lower score" rather than "prevent autofix." 
+- A useful nudge without giving the answer: I will ask students to read the agent trace logs carefully and identify which step logged a fallback, then trace that log message back to the exact line in the code that produced it.
